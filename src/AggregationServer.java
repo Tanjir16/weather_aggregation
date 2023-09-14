@@ -1,60 +1,45 @@
-import java.net.*;
-import java.io.*;
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
 
-public class AggregationServer {
-    private static final int PORT = 8080;
-    private DataStore dataStore;
+import java.net.InetSocketAddress;
 
-    public AggregationServer() {
-        this.dataStore = new DataStore();
+public class AggregationServer extends WebSocketServer {
+
+    public AggregationServer(InetSocketAddress address) {
+        super(address);
     }
 
-    public void start() {
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server started on port " + PORT);
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                new Thread(new RequestHandler(clientSocket)).start();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    @Override
+    public void onOpen(WebSocket conn, ClientHandshake handshake) {
+        System.out.println("New connection from " + conn.getRemoteSocketAddress());
     }
 
-    private class RequestHandler implements Runnable {
-        private Socket socket;
+    @Override
+    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        System.out.println("Closed connection from " + conn.getRemoteSocketAddress());
+    }
 
-        public RequestHandler(Socket socket) {
-            this.socket = socket;
-        }
+    @Override
+    public void onMessage(WebSocket conn, String message) {
+        // Handle incoming messages here
+        System.out.println("Received message: " + message);
+    }
 
-        @Override
-        public void run() {
-            try {
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-
-                String request = in.readLine();
-                if (request != null && request.startsWith("GET")) {
-                    String response = "HTTP/1.1 200 OK\r\n" +
-                            "Content-Length: 13\r\n" +
-                            "Content-Type: text/plain\r\n" +
-                            "\r\n" +
-                            "Hello, Tanjir!";
-                    out.write(response);
-                    out.flush();
-                }
-
-                in.close();
-                out.close();
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+    @Override
+    public void onError(WebSocket conn, Exception ex) {
+        ex.printStackTrace();
     }
 
     public static void main(String[] args) {
-        new AggregationServer().start();
+        AggregationServer server = new AggregationServer(new InetSocketAddress("localhost", 8080));
+        server.start();
+        System.out.println("WebSocket server started on port 8080");
     }
+
+    @Override
+    public void onStart() {
+        System.out.println("WebSocket Server Started");
+    }
+
 }

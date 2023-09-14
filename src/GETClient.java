@@ -1,37 +1,60 @@
-import java.net.*;
-import java.io.*;
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
+import java.net.URI;
+import java.util.Scanner;
 
-public class GETClient {
-    private String serverUrl;
+public class GETClient extends WebSocketClient {
 
-    public GETClient(String serverUrl) {
-        this.serverUrl = serverUrl;
+    public GETClient(URI serverUri) {
+        super(serverUri);
     }
 
-    public void requestData() {
-        try {
-            URL url = new URL(serverUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+    @Override
+    public void onOpen(ServerHandshake handshake) {
+        System.out.println("Connected to server");
+        // send a message upon connection
+        this.send("Hello from client!");
+    }
 
-            connection.setRequestMethod("GET");
-            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                System.out.println(inputLine);
-            }
-            in.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    @Override
+    public void onMessage(String message) {
+        System.out.println("Received message: " + message);
+    }
+
+    @Override
+    public void onClose(int code, String reason, boolean remote) {
+        System.out.println("Connection closed");
+    }
+
+    @Override
+    public void onError(Exception ex) {
+        ex.printStackTrace();
     }
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.out.println("Please provide the server URL as an argument.");
-            return;
+        URI uri = URI.create("ws://localhost:8080");
+        GETClient client = new GETClient(uri);
+        client.connect();
+
+        // Allow some time for the connection to establish.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
-        GETClient client = new GETClient(args[0]);
-        client.requestData();
+        // Start a new thread to continuously read user input and send it.
+        new Thread(() -> {
+            Scanner scanner = new Scanner(System.in);
+            while (true) {
+                System.out.println("Enter a message to send (type 'exit' to quit):");
+                String input = scanner.nextLine();
+                if ("exit".equalsIgnoreCase(input)) {
+                    client.close();
+                    System.exit(0);
+                }
+                client.send(input);
+            }
+        }).start();
     }
 }
