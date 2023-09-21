@@ -2,10 +2,10 @@
 JAVAC = javac
 
 # Source Files
-GETCLIENT_SRC = GETClient.java
-AGGREGATION_SRC = AggregationServer.java
-LAMPORT_SRC = LamportClock.java
-CONTENT_SRC = ContentServer.java
+GETCLIENT_SRC = src/GETClient.java
+AGGREGATION_SRC = src/AggregationServer.java
+LAMPORT_SRC = src/LamportClock.java
+CONTENT_SRC = src/ContentServer.java
 
 # Output Directories
 BIN = bin/
