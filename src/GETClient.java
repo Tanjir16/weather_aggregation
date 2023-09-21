@@ -1,64 +1,35 @@
-import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
+import org.json.JSONObject;
 
 public class GETClient {
 
     public static void main(String[] args) {
         try {
             Socket s = new Socket("localhost", 4567);
-
-            // Create and initialize the LamportClock
+            DataOutputStream dout = new DataOutputStream(s.getOutputStream());
             LamportClock clock = new LamportClock();
-            clock.sendAction(); // this increments the clock for sending action
+            clock.sendAction(); // increment the clock for sending action
 
-            // Construct the HTTP request string
+            // Send a GET request with LamportClock
             String httpRequest = "GET /weather.json HTTP/1.1\r\n" +
                     "Host: localhost\r\n" +
                     "LamportClock: " + clock.getTime() + "\r\n\r\n";
-
-            DataOutputStream dout = new DataOutputStream(s.getOutputStream());
-
-            // Send the HTTP request string
             dout.writeUTF(httpRequest);
             dout.flush();
 
-            // Receive the data from AggregationServer
+            // Receive the response
             DataInputStream dis = new DataInputStream(s.getInputStream());
             String responseData = dis.readUTF();
+            System.out.println("Response from Server: \n" + responseData);
 
-            // Split the response by newline
-            String[] responseLines = responseData.split("\r\n");
-
-            // Identify the start of the JSON by iterating over the split response
-            StringBuilder jsonBuilder = new StringBuilder();
-            boolean jsonStarted = false;
-            for (String line : responseLines) {
-                if (line.startsWith("{")) {
-                    jsonStarted = true;
-                }
-                if (jsonStarted) {
-                    jsonBuilder.append(line);
-                } else {
-                    jsonBuilder.setLength(0); // Clear the jsonBuilder if the line doesn't start with a '{' and we
-                                              // haven't started capturing the JSON yet
-                }
-            }
-            // Locate the start of the JSON data
+            // Extract JSON data from the response
             int jsonStartIndex = responseData.indexOf("{");
-            if (jsonStartIndex == -1) {
-                System.out.println("JSON data not found in the response. The raw response is: " + responseData);
-                return;
-            }
+            String jsonString = responseData.substring(jsonStartIndex);
+            JSONObject jsonObject = new JSONObject(jsonString);
 
-            String jsonPart = responseData.substring(jsonStartIndex);
-
-            // Convert the JSON string to JSONObject
-            JSONObject jsonObject = new JSONObject(jsonPart);
-            JSONObject weatherData = jsonObject.getJSONObject(jsonObject.keys().next());
-
-            // Format and print the data
-            printFormattedData(weatherData);
+            // Display the data
+            printFormattedData(jsonObject);
 
             dout.close();
             dis.close();
@@ -69,36 +40,32 @@ public class GETClient {
     }
 
     private static void printFormattedData(JSONObject jsonObj) {
-        String formattedData = "id: " + jsonObj.getString("id") + "\n" +
-                "name: " + jsonObj.getString("name") + "\n" +
-                "state: " + jsonObj.getString("state") + "\n" +
-                "time_zone: " + jsonObj.getString("time_zone") + "\n" +
-                "lat: " + jsonObj.getDouble("lat") + "\n" +
-                "lon: " + jsonObj.getDouble("lon") + "\n" +
-                "local_date_time: " + getShortDateTime(String.valueOf(jsonObj.getLong("local_date_time_full"))) + "\n" +
-                "local_date_time_full: " + jsonObj.getLong("local_date_time_full") + "\n" +
-                "air_temp: " + jsonObj.getDouble("air_temp") + "\n" +
-                "apparent_t: " + jsonObj.getDouble("apparent_t") + "\n" +
-                "cloud: " + jsonObj.getString("cloud") + "\n" +
-                "dewpt: " + jsonObj.getDouble("dewpt") + "\n" +
-                "press: " + jsonObj.getDouble("press") + "\n" +
-                "rel_hum: " + jsonObj.getInt("rel_hum") + "\n" +
-                "wind_dir: " + jsonObj.getString("wind_dir") + "\n" +
-                "wind_spd_kmh: " + jsonObj.getDouble("wind_spd_kmh") + "\n" +
-                "wind_spd_kt: " + jsonObj.getDouble("wind_spd_kt") + "\n";
-
-        System.out.println(formattedData);
+        System.out.println("id:" + jsonObj.getString("id"));
+        System.out.println("name:" + jsonObj.getString("name"));
+        System.out.println("state:" + jsonObj.getString("state"));
+        System.out.println("time_zone:" + jsonObj.getString("time_zone"));
+        System.out.println("lat:" + jsonObj.getDouble("lat"));
+        System.out.println("lon:" + jsonObj.getDouble("lon"));
+        System.out.println(
+                "local_date_time:" + getShortDateTime(String.valueOf(jsonObj.getLong("local_date_time_full"))));
+        System.out.println("local_date_time_full:" + jsonObj.getLong("local_date_time_full"));
+        System.out.println("air_temp:" + jsonObj.getDouble("air_temp"));
+        System.out.println("apparent_t:" + jsonObj.getDouble("apparent_t"));
+        System.out.println("cloud:" + jsonObj.getString("cloud"));
+        System.out.println("dewpt:" + jsonObj.getDouble("dewpt"));
+        System.out.println("press:" + jsonObj.getDouble("press"));
+        System.out.println("rel_hum:" + jsonObj.getInt("rel_hum"));
+        System.out.println("wind_dir:" + jsonObj.getString("wind_dir"));
+        System.out.println("wind_spd_kmh:" + jsonObj.getDouble("wind_spd_kmh"));
+        System.out.println("wind_spd_kt:" + jsonObj.getDouble("wind_spd_kt"));
     }
 
     private static String getShortDateTime(String fullDateTime) {
-        if (fullDateTime.length() == 14) {
-            String day = fullDateTime.substring(6, 8);
-            String month = fullDateTime.substring(4, 6);
-            String hour = fullDateTime.substring(8, 10);
-            String minute = fullDateTime.substring(10, 12);
-            return day + "/" + month + ":" + hour + minute + "pm";
-        }
-        return fullDateTime;
+        String day = fullDateTime.substring(6, 8);
+        String month = fullDateTime.substring(4, 6);
+        String hour = fullDateTime.substring(8, 10);
+        String minute = fullDateTime.substring(10, 12);
+        return day + "/" + month + ":" + hour + minute + "pm";
     }
 
     static class LamportClock {

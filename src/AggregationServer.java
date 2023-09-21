@@ -1,15 +1,21 @@
 import java.io.*;
 import java.net.*;
+import java.io.*;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.json.JSONObject;
+import java.util.stream.Collectors;
 
 public class AggregationServer {
 
     private static final int DEFAULT_PORT = 4567;
     private static LamportClock globalClock = new LamportClock();
+    private static JSONObject mostRecentData = null;
     private static Map<String, JSONObject> contentData = new ConcurrentHashMap<>();
     private static Map<String, Long> lastReceivedTimestamp = new ConcurrentHashMap<>();
+    private static PriorityQueue<PutRequest> putQueue = new PriorityQueue<>(
+            Comparator.comparingInt(PutRequest::getLamportTimestamp));
 
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
@@ -38,7 +44,6 @@ public class AggregationServer {
                 Socket s = ss.accept();
                 DataInputStream dis = new DataInputStream(s.getInputStream());
                 String receivedRequest = dis.readUTF();
-                // System.out.println("Received request: " + receivedRequest);
 
                 if (receivedRequest.startsWith("GET")) {
                     handleGET(receivedRequest, s);
@@ -55,18 +60,18 @@ public class AggregationServer {
 
     private static void handleGET(String request, Socket s) throws IOException {
         System.out.println("Received a GET request.");
-        JSONObject aggregatedData = new JSONObject(contentData);
+        JSONObject aggregatedData = mostRecentData != null ? mostRecentData : new JSONObject();
+        System.out.println("Returning data to client: " + aggregatedData.toString());
         sendResponse(s, 200, aggregatedData.toString());
     }
 
-    private static void handlePUT(String request, Socket s) throws IOException {
+    private static synchronized void handlePUT(String request, Socket s) throws IOException {
         System.out.println("Received a PUT request.");
         String[] headers = request.split("\r\n");
         String clockValue = null;
         for (String header : headers) {
             if (header.startsWith("LamportClock:")) {
                 clockValue = header.split(":")[1].trim();
-                globalClock.receiveAction(Integer.parseInt(clockValue));
             }
         }
 
@@ -78,16 +83,35 @@ public class AggregationServer {
         String jsonData = headers[headers.length - 1];
         JSONObject data = new JSONObject(jsonData);
 
-        printFormattedData(data);
+        putQueue.add(new PutRequest(Integer.parseInt(clockValue), data));
 
-        contentData.put(clockValue, data);
-        lastReceivedTimestamp.put(clockValue, System.currentTimeMillis());
+        System.out.println("Queue size after adding: " + putQueue.size());
 
-        if (contentData.size() == 1) { // If it's the first time data has been added
-            sendResponse(s, 201, "Created");
-        } else {
-            sendResponse(s, 200, "OK");
+        processPutQueue();
+
+        System.out.println("Queue size after processing: " + putQueue.size());
+
+        sendResponse(s, 200, "OK");
+
+    }
+
+    private static synchronized void processPutQueue() {
+        System.out.println("Starting processing of the queue.");
+        PutRequest request;
+        while ((request = putQueue.poll()) != null) {
+            System.out.println("Processing request with timestamp: " + request.getLamportTimestamp());
+
+            globalClock.receiveAction(request.getLamportTimestamp());
+
+            JSONObject data = request.getData();
+            printFormattedData(data);
+
+            contentData.put(String.valueOf(request.getLamportTimestamp()), data);
+            mostRecentData = data;
+            lastReceivedTimestamp.put(String.valueOf(request.getLamportTimestamp()), System.currentTimeMillis());
+
         }
+        System.out.println("Finished processing of the queue.");
     }
 
     private static void printFormattedData(JSONObject jsonObj) {
@@ -118,14 +142,36 @@ public class AggregationServer {
             String month = fullDateTime.substring(4, 6);
             String hour = fullDateTime.substring(8, 10);
             String minute = fullDateTime.substring(10, 12);
-            return day + "/" + month + ":" + hour + minute + "pm"; // Assumes all times are PM. Adjust if necessary.
+            return day + "/" + month + ":" + hour + minute + "pm"; // Assumes all times are PM.
         }
         return fullDateTime; // Return original if not as expected
     }
 
     private static void removeOldContentServers() {
         long currentTime = System.currentTimeMillis();
-        lastReceivedTimestamp.entrySet().removeIf(entry -> currentTime - entry.getValue() > 30 * 1000);
+        Set<String> staleKeys = lastReceivedTimestamp.entrySet().stream()
+                .filter(entry -> currentTime - entry.getValue() > 30 * 1000)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        lastReceivedTimestamp.keySet().removeAll(staleKeys);
+        contentData.keySet().removeAll(staleKeys);
+
+        System.out.println("Remaining contentData keys: " + contentData.keySet());
+        System.out.println("Remaining lastReceivedTimestamp keys: " + lastReceivedTimestamp.keySet());
+
+        if (mostRecentData != null && !contentData.values().contains(mostRecentData)) {
+            mostRecentData = null;
+        }
+    }
+
+    private static String getKeyForMostRecentData() {
+        for (Map.Entry<String, JSONObject> entry : contentData.entrySet()) {
+            if (entry.getValue().equals(mostRecentData)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     private static void sendResponse(Socket s, int statusCode, String message) throws IOException {
@@ -153,6 +199,24 @@ public class AggregationServer {
 
         public synchronized void receiveAction(int sourceTimestamp) {
             this.timestamp = Math.max(this.timestamp, sourceTimestamp) + 1;
+        }
+    }
+
+    static class PutRequest {
+        private final int lamportTimestamp;
+        private final JSONObject data;
+
+        public PutRequest(int lamportTimestamp, JSONObject data) {
+            this.lamportTimestamp = lamportTimestamp;
+            this.data = data;
+        }
+
+        public int getLamportTimestamp() {
+            return lamportTimestamp;
+        }
+
+        public JSONObject getData() {
+            return data;
         }
     }
 }
