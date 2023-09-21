@@ -15,6 +15,7 @@ LIBS = $(CURDIR)/lib/
 JARS = $(LIBS)Java-WebSocket-1.5.4.jar;$(LIBS)json-20230618.jar;$(LIBS)slf4j-api-2.0.9.jar;$(LIBS)slf4j-simple-2.0.9.jar
 CLASSPATH = ".;$(BIN);$(JARS)"
 
+
 all: echo-classpath getclient aggregation content
 
 echo-classpath:
