@@ -38,7 +38,7 @@ public class AggregationServer {
                 Socket s = ss.accept();
                 DataInputStream dis = new DataInputStream(s.getInputStream());
                 String receivedRequest = dis.readUTF();
-                System.out.println("Received request: " + receivedRequest);
+                // System.out.println("Received request: " + receivedRequest);
 
                 if (receivedRequest.startsWith("GET")) {
                     handleGET(receivedRequest, s);
