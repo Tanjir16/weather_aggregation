@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
-import org.json.JSONObject;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
 public class GETClient {
 
@@ -26,7 +27,10 @@ public class GETClient {
             // Extract JSON data from the response
             int jsonStartIndex = responseData.indexOf("{");
             String jsonString = responseData.substring(jsonStartIndex);
-            JSONObject jsonObject = new JSONObject(jsonString);
+
+            // Create a JSONObject
+            JSONParser parser = new JSONParser();
+            JSONObject jsonObject = (JSONObject) parser.parse(jsonString);
 
             // Display the data
             printFormattedData(jsonObject);
@@ -40,24 +44,24 @@ public class GETClient {
     }
 
     private static void printFormattedData(JSONObject jsonObj) {
-        System.out.println("id:" + jsonObj.getString("id"));
-        System.out.println("name:" + jsonObj.getString("name"));
-        System.out.println("state:" + jsonObj.getString("state"));
-        System.out.println("time_zone:" + jsonObj.getString("time_zone"));
-        System.out.println("lat:" + jsonObj.getDouble("lat"));
-        System.out.println("lon:" + jsonObj.getDouble("lon"));
+        System.out.println("id:" + (String) jsonObj.get("id"));
+        System.out.println("name:" + (String) jsonObj.get("name"));
+        System.out.println("state:" + (String) jsonObj.get("state"));
+        System.out.println("time_zone:" + (String) jsonObj.get("time_zone"));
+        System.out.println("lat:" + (double) jsonObj.get("lat"));
+        System.out.println("lon:" + (double) jsonObj.get("lon"));
         System.out.println(
-                "local_date_time:" + getShortDateTime(String.valueOf(jsonObj.getLong("local_date_time_full"))));
-        System.out.println("local_date_time_full:" + jsonObj.getLong("local_date_time_full"));
-        System.out.println("air_temp:" + jsonObj.getDouble("air_temp"));
-        System.out.println("apparent_t:" + jsonObj.getDouble("apparent_t"));
-        System.out.println("cloud:" + jsonObj.getString("cloud"));
-        System.out.println("dewpt:" + jsonObj.getDouble("dewpt"));
-        System.out.println("press:" + jsonObj.getDouble("press"));
-        System.out.println("rel_hum:" + jsonObj.getInt("rel_hum"));
-        System.out.println("wind_dir:" + jsonObj.getString("wind_dir"));
-        System.out.println("wind_spd_kmh:" + jsonObj.getDouble("wind_spd_kmh"));
-        System.out.println("wind_spd_kt:" + jsonObj.getDouble("wind_spd_kt"));
+                "local_date_time:" + getShortDateTime(String.valueOf((long) jsonObj.get("local_date_time_full"))));
+        System.out.println("local_date_time_full:" + (long) jsonObj.get("local_date_time_full"));
+        System.out.println("air_temp:" + (double) jsonObj.get("air_temp"));
+        System.out.println("apparent_t:" + (double) jsonObj.get("apparent_t"));
+        System.out.println("cloud:" + (String) jsonObj.get("cloud"));
+        System.out.println("dewpt:" + (double) jsonObj.get("dewpt"));
+        System.out.println("press:" + (double) jsonObj.get("press"));
+        System.out.println("rel_hum:" + (int) (long) jsonObj.get("rel_hum"));
+        System.out.println("wind_dir:" + (String) jsonObj.get("wind_dir"));
+        System.out.println("wind_spd_kmh:" + (double) jsonObj.get("wind_spd_kmh"));
+        System.out.println("wind_spd_kt:" + (double) jsonObj.get("wind_spd_kt"));
     }
 
     private static String getShortDateTime(String fullDateTime) {
