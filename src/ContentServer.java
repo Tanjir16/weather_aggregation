@@ -2,21 +2,27 @@ import java.io.*;
 import java.net.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 import org.json.JSONObject;
 
 public class ContentServer {
 
     public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter the file you want to access: ");
+        String filename = scanner.nextLine();
+        scanner.close();
+
         try {
             // 1. Initialize LamportClock and perform a send action.
             LamportClock clock = new LamportClock();
             clock.sendAction();
 
             // 2. Read and parse the file into a JSON string
-            String jsonData = parseFileToJSON("weather_data.txt"); // command line multiple file /// 30 sec pause
+            String jsonData = parseFileToJSON(filename);
 
             // 3. Send this data to the Aggregation Server using sockets
-            Socket s = new Socket("localhost", 6666);
+            Socket s = new Socket("localhost", 4567);
 
             // 4. Construct the HTTP PUT request string
             String httpPutRequest = "PUT /weather.json HTTP/1.1\r\n" +

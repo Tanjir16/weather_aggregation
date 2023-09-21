@@ -78,6 +78,8 @@ public class AggregationServer {
         String jsonData = headers[headers.length - 1];
         JSONObject data = new JSONObject(jsonData);
 
+        printFormattedData(data);
+
         contentData.put(clockValue, data);
         lastReceivedTimestamp.put(clockValue, System.currentTimeMillis());
 
@@ -86,6 +88,39 @@ public class AggregationServer {
         } else {
             sendResponse(s, 200, "OK");
         }
+    }
+
+    private static void printFormattedData(JSONObject jsonObj) {
+        String formattedData = "id: " + jsonObj.getString("id") + "\n" +
+                "name: " + jsonObj.getString("name") + "\n" +
+                "state: " + jsonObj.getString("state") + "\n" +
+                "time_zone: " + jsonObj.getString("time_zone") + "\n" +
+                "lat: " + jsonObj.getDouble("lat") + "\n" +
+                "lon: " + jsonObj.getDouble("lon") + "\n" +
+                "local_date_time: " + getShortDateTime(String.valueOf(jsonObj.getLong("local_date_time_full"))) + "\n" +
+                "local_date_time_full: " + jsonObj.getLong("local_date_time_full") + "\n" +
+                "air_temp: " + jsonObj.getDouble("air_temp") + "\n" +
+                "apparent_t: " + jsonObj.getDouble("apparent_t") + "\n" +
+                "cloud: " + jsonObj.getString("cloud") + "\n" +
+                "dewpt: " + jsonObj.getDouble("dewpt") + "\n" +
+                "press: " + jsonObj.getDouble("press") + "\n" +
+                "rel_hum: " + jsonObj.getInt("rel_hum") + "\n" +
+                "wind_dir: " + jsonObj.getString("wind_dir") + "\n" +
+                "wind_spd_kmh: " + jsonObj.getDouble("wind_spd_kmh") + "\n" +
+                "wind_spd_kt: " + jsonObj.getDouble("wind_spd_kt") + "\n";
+
+        System.out.println(formattedData);
+    }
+
+    private static String getShortDateTime(String fullDateTime) {
+        if (fullDateTime.length() == 14) { // Ensure the format is as expected, like '20230715160000'
+            String day = fullDateTime.substring(6, 8);
+            String month = fullDateTime.substring(4, 6);
+            String hour = fullDateTime.substring(8, 10);
+            String minute = fullDateTime.substring(10, 12);
+            return day + "/" + month + ":" + hour + minute + "pm"; // Assumes all times are PM. Adjust if necessary.
+        }
+        return fullDateTime; // Return original if not as expected
     }
 
     private static void removeOldContentServers() {
