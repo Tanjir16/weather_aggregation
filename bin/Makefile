@@ -18,8 +18,9 @@ CLASSPATH = ".;$(BIN);$(JARS)"
 all: getclient aggregation content
 
 getclient:
-	mkdir -p $(BIN)
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(GETCLIENT_SRC)
+    mkdir -p $(BIN)
+    $(JAVAC) -d $(BIN) -cp ".;$(BIN);../lib/Java-WebSocket-1.5.4.jar;../lib/json-simple-1.1.1.jar;../lib/slf4j-api-2.0.9.jar;../lib/slf4j-simple-2.0.9.jar" src/GETClient.java
+
 
 aggregation:
 	mkdir -p $(BIN)

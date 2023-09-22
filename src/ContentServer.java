@@ -45,7 +45,10 @@ public class ContentServer {
         }
     }
 
-    private static String parseFileToJSON(String filePath) throws IOException {
+    private static String parseFileToJSON(String filename) throws IOException {
+        // Prepend the relative path
+        String filePath = "src/" + filename;
+
         BufferedReader reader = new BufferedReader(new FileReader(filePath));
         Map<String, Object> dataMap = new HashMap<>();
 
@@ -69,4 +72,5 @@ public class ContentServer {
 
         return new JSONObject(dataMap).toString();
     }
+
 }

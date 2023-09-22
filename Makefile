@@ -11,22 +11,23 @@ CONTENT_SRC = src/ContentServer.java
 BIN = bin/
 
 # Libraries
-LIBS = ../lib/
+LIBS = C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/
 JARS = $(LIBS)Java-WebSocket-1.5.4.jar;$(LIBS)json-20230618.jar;$(LIBS)slf4j-api-2.0.9.jar;$(LIBS)slf4j-simple-2.0.9.jar
 CLASSPATH = ".;$(BIN);$(JARS)"
 
-all: getclient aggregation content
+# Targets
+all: directories getclient aggregation content
 
-getclient:
+directories:
 	mkdir -p $(BIN)
+
+getclient: $(GETCLIENT_SRC)
 	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(GETCLIENT_SRC)
 
-aggregation:
-	mkdir -p $(BIN)
+aggregation: $(AGGREGATION_SRC) $(LAMPORT_SRC)
 	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(AGGREGATION_SRC) $(LAMPORT_SRC)
 
-content:
-	mkdir -p $(BIN)
+content: $(CONTENT_SRC) $(LAMPORT_SRC)
 	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(CONTENT_SRC) $(LAMPORT_SRC)
 
 clean:
@@ -40,3 +41,5 @@ run-aggregation:
 
 run-content:
 	java -cp $(CLASSPATH) ContentServer
+
+.PHONY: all directories getclient aggregation content clean run-getclient run-aggregation run-content
