@@ -2,7 +2,7 @@
 JAVAC = javac
 
 # Source Files
-GETCLIENT_SRC = src/GETClient.java
+GETCLIENT_SRC = C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/src/GETClient.java
 AGGREGATION_SRC = src/AggregationServer.java
 LAMPORT_SRC = src/LamportClock.java
 CONTENT_SRC = src/ContentServer.java
