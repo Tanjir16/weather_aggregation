@@ -22,7 +22,8 @@ directories:
 	mkdir -p $(BIN)
 
 getclient: 
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(GETCLIENT_SRC)
+	$(JAVAC) -d $(BIN) -cp ".;bin/;C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/Java-WebSocket-1.5.4.jar;C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/json-20230618.jar;C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/slf4j-api-2.0.9.jar;C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/slf4j-simple-2.0.9.jar" "C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/src/GETClient.java"
+
 
 aggregation: $(AGGREGATION_SRC) $(LAMPORT_SRC)
 	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(AGGREGATION_SRC) $(LAMPORT_SRC)
