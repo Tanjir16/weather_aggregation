@@ -2,36 +2,42 @@
 JAVAC = javac
 
 # Source Files
-GETCLIENT_SRC = src/GETClient.java
-AGGREGATION_SRC = src/AggregationServer.java
-LAMPORT_SRC = src/LamportClock.java
-CONTENT_SRC = src/ContentServer.java
+SRC_DIR = src/
+BIN_DIR = bin/
+LIB_DIR = ../lib/
+GETCLIENT_SRC = $(SRC_DIR)GETClient.java
+AGGREGATION_SRC = $(SRC_DIR)AggregationServer.java
+LAMPORT_SRC = $(SRC_DIR)LamportClock.java
+CONTENT_SRC = $(SRC_DIR)ContentServer.java
 
-# Output Directories
-BIN = bin/
+# Determine OS type for separator in CLASSPATH
+ifeq ($(OS),Windows_NT)
+    SEP = ;
+else
+    SEP = :
+endif
 
 # Libraries
-LIBS = C:/Users/Tanjir Ahmed/Desktop/weather_aggregation/weather_aggregation/lib/
-JARS = $(LIBS)Java-WebSocket-1.5.4.jar;$(LIBS)json-20230618.jar;$(LIBS)slf4j-api-2.0.9.jar;$(LIBS)slf4j-simple-2.0.9.jar
-CLASSPATH = ".;$(BIN);$(JARS)"
+JARS = $(LIB_DIR)Java-WebSocket-1.5.4.jar$(SEP)$(LIB_DIR)json-20230618.jar$(SEP)$(LIB_DIR)slf4j-api-2.0.9.jar$(SEP)$(LIB_DIR)slf4j-simple-2.0.9.jar
+CLASSPATH = .$(SEP)$(BIN_DIR)$(SEP)$(JARS)
 
 # Targets
 all: directories getclient aggregation content
 
 directories:
-	mkdir -p $(BIN)
+	if not exist $(BIN_DIR) mkdir $(BIN_DIR)
 
-getclient: $(GETCLIENT_SRC)
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(GETCLIENT_SRC)
+getclient:
+	$(JAVAC) -d $(BIN_DIR) -cp $(CLASSPATH) $(GETCLIENT_SRC)
 
-aggregation: $(AGGREGATION_SRC) $(LAMPORT_SRC)
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(AGGREGATION_SRC) $(LAMPORT_SRC)
+aggregation:
+	$(JAVAC) -d $(BIN_DIR) -cp $(CLASSPATH) $(AGGREGATION_SRC) $(LAMPORT_SRC)
 
-content: $(CONTENT_SRC) $(LAMPORT_SRC)
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(CONTENT_SRC) $(LAMPORT_SRC)
+content:
+	$(JAVAC) -d $(BIN_DIR) -cp $(CLASSPATH) $(CONTENT_SRC) $(LAMPORT_SRC)
 
 clean:
-	rm -rf $(BIN)
+	rm -rf $(BIN_DIR)
 
 run-getclient:
 	java -cp $(CLASSPATH) GETClient
