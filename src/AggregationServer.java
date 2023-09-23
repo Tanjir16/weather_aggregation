@@ -1,7 +1,5 @@
 import java.io.*;
 import java.net.*;
-import java.io.*;
-import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.json.JSONObject;
@@ -16,6 +14,8 @@ public class AggregationServer {
     private static Map<String, Long> lastReceivedTimestamp = new ConcurrentHashMap<>();
     private static PriorityQueue<PutRequest> putQueue = new PriorityQueue<>(
             Comparator.comparingInt(PutRequest::getLamportTimestamp));
+    private static final String BACKUP_FILE = "backup.json";
+    private static ServerSocket ss = null;
 
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
@@ -28,8 +28,20 @@ public class AggregationServer {
             }
         }
 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutdown command received. Attempting graceful shutdown...");
+            writeToBackupFile();
+            if (ss != null && !ss.isClosed()) {
+                try {
+                    ss.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }));
+
         try {
-            ServerSocket ss = new ServerSocket(port);
+            ss = new ServerSocket(port);
             System.out.println("Server started on port " + port);
 
             Timer timer = new Timer(true);
@@ -53,6 +65,9 @@ public class AggregationServer {
                     sendResponse(s, 400, "Bad Request");
                 }
             }
+        } catch (SocketException e) {
+            System.out.println("Server socket closed. Performing cleanup operations.");
+            writeToBackupFile();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -85,66 +100,21 @@ public class AggregationServer {
 
         putQueue.add(new PutRequest(Integer.parseInt(clockValue), data));
 
-        System.out.println("Queue size after adding: " + putQueue.size());
-
         processPutQueue();
 
-        System.out.println("Queue size after processing: " + putQueue.size());
-
         sendResponse(s, 200, "OK");
-
     }
 
     private static synchronized void processPutQueue() {
-        System.out.println("Starting processing of the queue.");
         PutRequest request;
         while ((request = putQueue.poll()) != null) {
-            System.out.println("Processing request with timestamp: " + request.getLamportTimestamp());
-
             globalClock.receiveAction(request.getLamportTimestamp());
 
             JSONObject data = request.getData();
-            printFormattedData(data);
-
             contentData.put(String.valueOf(request.getLamportTimestamp()), data);
             mostRecentData = data;
             lastReceivedTimestamp.put(String.valueOf(request.getLamportTimestamp()), System.currentTimeMillis());
-
         }
-        System.out.println("Finished processing of the queue.");
-    }
-
-    private static void printFormattedData(JSONObject jsonObj) {
-        String formattedData = "id: " + jsonObj.getString("id") + "\n" +
-                "name: " + jsonObj.getString("name") + "\n" +
-                "state: " + jsonObj.getString("state") + "\n" +
-                "time_zone: " + jsonObj.getString("time_zone") + "\n" +
-                "lat: " + jsonObj.getDouble("lat") + "\n" +
-                "lon: " + jsonObj.getDouble("lon") + "\n" +
-                "local_date_time: " + getShortDateTime(String.valueOf(jsonObj.getLong("local_date_time_full"))) + "\n" +
-                "local_date_time_full: " + jsonObj.getLong("local_date_time_full") + "\n" +
-                "air_temp: " + jsonObj.getDouble("air_temp") + "\n" +
-                "apparent_t: " + jsonObj.getDouble("apparent_t") + "\n" +
-                "cloud: " + jsonObj.getString("cloud") + "\n" +
-                "dewpt: " + jsonObj.getDouble("dewpt") + "\n" +
-                "press: " + jsonObj.getDouble("press") + "\n" +
-                "rel_hum: " + jsonObj.getInt("rel_hum") + "\n" +
-                "wind_dir: " + jsonObj.getString("wind_dir") + "\n" +
-                "wind_spd_kmh: " + jsonObj.getDouble("wind_spd_kmh") + "\n" +
-                "wind_spd_kt: " + jsonObj.getDouble("wind_spd_kt") + "\n";
-
-        System.out.println(formattedData);
-    }
-
-    private static String getShortDateTime(String fullDateTime) {
-        if (fullDateTime.length() == 14) { // Ensure the format is as expected, like '20230715160000'
-            String day = fullDateTime.substring(6, 8);
-            String month = fullDateTime.substring(4, 6);
-            String hour = fullDateTime.substring(8, 10);
-            String minute = fullDateTime.substring(10, 12);
-            return day + "/" + month + ":" + hour + minute + "pm"; // Assumes all times are PM.
-        }
-        return fullDateTime; // Return original if not as expected
     }
 
     private static void removeOldContentServers() {
@@ -157,21 +127,9 @@ public class AggregationServer {
         lastReceivedTimestamp.keySet().removeAll(staleKeys);
         contentData.keySet().removeAll(staleKeys);
 
-        System.out.println("Remaining contentData keys: " + contentData.keySet());
-        System.out.println("Remaining lastReceivedTimestamp keys: " + lastReceivedTimestamp.keySet());
-
         if (mostRecentData != null && !contentData.values().contains(mostRecentData)) {
             mostRecentData = null;
         }
-    }
-
-    private static String getKeyForMostRecentData() {
-        for (Map.Entry<String, JSONObject> entry : contentData.entrySet()) {
-            if (entry.getValue().equals(mostRecentData)) {
-                return entry.getKey();
-            }
-        }
-        return null;
     }
 
     private static void sendResponse(Socket s, int statusCode, String message) throws IOException {
@@ -182,23 +140,16 @@ public class AggregationServer {
         s.close();
     }
 
-    static class LamportClock {
-        private int timestamp;
-
-        public LamportClock() {
-            this.timestamp = 0;
-        }
-
-        public synchronized int getTime() {
-            return this.timestamp;
-        }
-
-        public synchronized void sendAction() {
-            this.timestamp += 1;
-        }
-
-        public synchronized void receiveAction(int sourceTimestamp) {
-            this.timestamp = Math.max(this.timestamp, sourceTimestamp) + 1;
+    private static void writeToBackupFile() {
+        try (FileWriter file = new FileWriter(BACKUP_FILE)) {
+            if (mostRecentData != null) {
+                file.write(mostRecentData.toString());
+                System.out.println("Successfully copied JSON object to " + BACKUP_FILE);
+            } else {
+                System.out.println("Most recent data is null. Backup not created.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
