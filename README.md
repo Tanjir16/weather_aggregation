@@ -79,4 +79,4 @@ This ensures that the order of events can be determined based on their logical c
 
 4. **Fault Tolerance**:
     - Ensure that if a content server doesn't send data for a certain period, its previous data is removed from consideration for serving to GET clients.
-![Description of Image](weather_aggregation-3/CaptureFF.jpg)
+![Description of Image](https://github.com/Tanjir16/weather_aggregation/blob/main/CaptureFF.JPG)
