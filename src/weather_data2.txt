@@ -6,12 +6,12 @@ lat:-36
 lon:138.6
 local_date_time:15/04:1pm
 local_date_time_full:20230715160000
-air_temp:4461.3
+air_temp:4690.3
 apparent_t:9.5
 cloud:Partly cloudy
 dewpt:6
 press:1000
 rel_hum:700
 wind_dir:S
-wind_spd_kmh:14
-wind_spd_kt:7
+wind_spd_kmh:18
+wind_spd_kt:9
