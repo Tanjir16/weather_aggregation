@@ -1,45 +1,56 @@
 # Compiler
 JAVAC = javac
+JAVA = java
 
-# Source Files
-GETCLIENT_SRC = src/GETClient.java
-AGGREGATION_SRC = src/AggregationServer.java
-LAMPORT_SRC = src/LamportClock.java
-CONTENT_SRC = src/ContentServer.java
+# Source Files Directory
+SRC_DIR = src
 
-# Output Directories
-BIN = bin/
+# Binaries Directory
+BIN_DIR = bin
 
-# Libraries
-LIBS = lib/
-JARS = $(LIBS)Java-WebSocket-1.5.4.jar:$(LIBS)json-20230618.jar:$(LIBS)slf4j-api-2.0.9.jar:$(LIBS)slf4j-simple-2.0.9.jar
-CLASSPATH = ".;$(BIN);$(JARS)"
+# Classpath including the JAR files and the binaries directory
+CLASSPATH = ".;$(BIN_DIR);lib/*"
 
-# Targets
-all: directories getclient aggregation content
+# Creating a list of source files
+SRC_FILES = $(wildcard $(SRC_DIR)/*.java)
 
-directories:
-	mkdir -p $(BIN)
+all: compile
 
-getclient:
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(GETCLIENT_SRC)
+# Creates the bin directory if it doesn’t exist
+prepare:
+	@mkdir -p $(BIN_DIR)
 
-aggregation:
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(AGGREGATION_SRC) $(LAMPORT_SRC)
+# Compiles the Java source files
+compile: prepare
+	$(JAVAC) -d $(BIN_DIR) -cp $(CLASSPATH) $(SRC_FILES)
 
-content:
-	$(JAVAC) -d $(BIN) -cp $(CLASSPATH) $(CONTENT_SRC) $(LAMPORT_SRC)
+# Running different components, adjust as per your specific needs
+run-aggregation: compile
+	$(JAVA) -cp $(CLASSPATH) AggregationServer $(filter-out $@,$(MAKECMDGOALS))
 
+run-content: compile
+	@echo "Using paths: $(filter-out $@,$(MAKECMDGOALS))"
+	$(JAVA) -cp $(CLASSPATH) ContentServer $(filter-out $@,$(MAKECMDGOALS))
+
+run-modify: compile
+	$(JAVA) -cp $(CLASSPATH) Modify
+
+run-getclient: compile
+	$(JAVA) -cp $(CLASSPATH) GETClient $(filter-out $@,$(MAKECMDGOALS))
+
+# Clean up the binaries directory
 clean:
-	rm -rf $(BIN)
+	@rm -rf $(BIN_DIR)
 
-run-getclient:
-	java -cp $(CLASSPATH) GETClient
+# This is a workaround to pass additional arguments with the command
+%:
+	@:
 
-run-aggregation:
-	java -cp $(CLASSPATH) AggregationServer
 
-run-content:
-	java -cp $(CLASSPATH) ContentServer
+run-test: compile
+	chmod +x test.sh
+	./test.sh
 
-.PHONY: all directories getclient aggregation content clean run-getclient run-aggregation run-content
+run-test3: compile
+	chmod +x test3.sh
+	./test3.sh	

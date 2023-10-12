@@ -1,19 +1,22 @@
 public class LamportClock {
-    private int timestamp;
+    private int time;
 
     public LamportClock() {
-        this.timestamp = 0;
+        time = 0;
     }
 
-    public synchronized int getTime() {
-        return this.timestamp;
-    }
-
+    // Call this method when a send or receive action occurs
     public synchronized void sendAction() {
-        this.timestamp += 1;
+        time++;
     }
 
-    public synchronized void receiveAction(int sourceTimestamp) {
-        this.timestamp = Math.max(this.timestamp, sourceTimestamp) + 1;
+    // Call this method when a receive action occurs and pass the received timestamp
+    public synchronized void receiveAction(int receivedTimestamp) {
+        time = Math.max(time, receivedTimestamp) + 1;
+    }
+
+    // Get the current Lamport clock time
+    public synchronized int getTime() {
+        return time;
     }
 }

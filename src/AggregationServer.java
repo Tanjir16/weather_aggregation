@@ -4,45 +4,60 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.json.JSONObject;
 import java.util.stream.Collectors;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
 public class AggregationServer {
 
-    private static final int DEFAULT_PORT = 4567;
+    private static final int DEFAULT_HTTP_PORT = 5000;
+    private static final int DEFAULT_SOCKET_PORT = 5001;
     private static LamportClock globalClock = new LamportClock();
     private static JSONObject mostRecentData = null;
-    private static Map<String, JSONObject> contentData = new ConcurrentHashMap<>();
-    private static Map<String, Long> lastReceivedTimestamp = new ConcurrentHashMap<>();
-    private static PriorityQueue<PutRequest> putQueue = new PriorityQueue<>(
-            Comparator.comparingInt(PutRequest::getLamportTimestamp));
-    private static final String BACKUP_FILE = "backup.json";
+    private static Map<Integer, Long> lastReceivedTimestamp = new ConcurrentHashMap<>();
     private static ServerSocket ss = null;
+    private static Map<String, JSONObject> contentData = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        int port = DEFAULT_PORT;
+        int httpPort = DEFAULT_HTTP_PORT;
+        int socketPort = DEFAULT_SOCKET_PORT;
 
         if (args.length > 0) {
             try {
-                port = Integer.parseInt(args[0]);
+                httpPort = Integer.parseInt(args[0]);
+                socketPort = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_SOCKET_PORT;
             } catch (NumberFormatException e) {
-                System.err.println("Invalid port number. Using default port " + DEFAULT_PORT);
+                System.err.println("Invalid port number. Using default ports " + DEFAULT_HTTP_PORT + " and "
+                        + DEFAULT_SOCKET_PORT);
             }
+        }
+
+        System.out.println("Initializing server...");
+
+        try {
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress(httpPort), 0);
+            httpServer.createContext("/", new RequestHandler());
+            httpServer.setExecutor(null);
+            httpServer.start();
+            System.out.println("HTTP server started on port " + httpPort);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutdown command received. Attempting graceful shutdown...");
-            writeToBackupFile();
-            if (ss != null && !ss.isClosed()) {
-                try {
+            try {
+                if (ss != null && !ss.isClosed()) {
                     ss.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }));
 
         try {
-            ss = new ServerSocket(port);
-            System.out.println("Server started on port " + port);
+            ss = new ServerSocket(socketPort);
+            System.out.println("Socket server started on port " + socketPort);
 
             Timer timer = new Timer(true);
             timer.scheduleAtFixedRate(new TimerTask() {
@@ -50,10 +65,12 @@ public class AggregationServer {
                 public void run() {
                     removeOldContentServers();
                 }
-            }, 0, 5000); // Check every 5 seconds
+            }, 0, 5000);
 
             while (true) {
+                System.out.println("Waiting for client connection...");
                 Socket s = ss.accept();
+                System.out.println("Client connected: " + s.getInetAddress());
                 DataInputStream dis = new DataInputStream(s.getInputStream());
                 String receivedRequest = dis.readUTF();
 
@@ -66,24 +83,73 @@ public class AggregationServer {
                 }
             }
         } catch (SocketException e) {
-            System.out.println("Server socket closed. Performing cleanup operations.");
-            writeToBackupFile();
+            e.printStackTrace();
+            System.out.println("Exception occurred: " + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    static class RequestHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange httpExchange) throws IOException {
+            String query = httpExchange.getRequestURI().getQuery();
+            String id = null;
+            if (query != null && query.startsWith("id=")) {
+                id = query.split("=")[1];
+            }
+
+            JSONObject aggregatedData = AggregationServer.filterDataById(id); // Corrected this line
+
+            String response = aggregatedData.toString();
+            httpExchange.sendResponseHeaders(200, response.getBytes().length);
+            OutputStream os = httpExchange.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
+        }
+    }
+
+    private static JSONObject filterDataById(String ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new JSONObject(contentData); // Return all data if no ID is specified
+        }
+
+        JSONObject filteredData = new JSONObject();
+        String[] idArray = ids.split(",");
+
+        for (String id : idArray) {
+            System.out.println("Looking for ID: " + id);
+            JSONObject data = contentData.get(id); // Get data by ID
+            if (data != null) {
+                System.out.println("Found data for ID " + id + ": " + data);
+                filteredData.put(id, data);
+            }
+        }
+
+        return filteredData;
+    }
+
+    // Following methods handle incoming GET and PUT requests, managing data and
+    // responding to clients
     private static void handleGET(String request, Socket s) throws IOException {
         System.out.println("Received a GET request.");
-        JSONObject aggregatedData = mostRecentData != null ? mostRecentData : new JSONObject();
+        String id = null;
+        if (request.contains("?id=")) {
+            id = request.split("\\?id=")[1].split(" ")[0];
+        }
+
+        JSONObject aggregatedData = filterDataById(id);
         System.out.println("Returning data to client: " + aggregatedData.toString());
         sendResponse(s, 200, aggregatedData.toString());
     }
 
+    // Similar to above, with additional handling for PUT requests and managing data
+    // storage and updates
     private static synchronized void handlePUT(String request, Socket s) throws IOException {
-        System.out.println("Received a PUT request.");
+        System.out.println("Received a PUT request: " + request);
         String[] headers = request.split("\r\n");
         String clockValue = null;
+
         for (String header : headers) {
             if (header.startsWith("LamportClock:")) {
                 clockValue = header.split(":")[1].trim();
@@ -95,79 +161,98 @@ public class AggregationServer {
             return;
         }
 
+        int lamportTimestamp = Integer.parseInt(clockValue);
+        globalClock.receiveAction(lamportTimestamp);
+
         String jsonData = headers[headers.length - 1];
         JSONObject data = new JSONObject(jsonData);
 
-        putQueue.add(new PutRequest(Integer.parseInt(clockValue), data));
+        // Add the LamportClock value to the JSONObject
+        data.put("LamportClock", lamportTimestamp);
 
-        processPutQueue();
+        // Extract ID from the JSON data
+        String id = data.has("id") ? data.getString("id") : "unknown"; // Make sure to handle this appropriately
+
+        if (mostRecentData == null || lamportTimestamp > mostRecentData.getInt("LamportClock")) {
+            mostRecentData = data;
+            System.out.println("Updated mostRecentData with Lamport Timestamp: " + lamportTimestamp);
+        } else {
+            System.out.println("Received older data. No update needed.");
+        }
+
+        // Store all received data if needed, not just the most recent
+        contentData.put(id, data);
+        lastReceivedTimestamp.put(lamportTimestamp, System.currentTimeMillis());
+
+        System.out.println(
+                "Processed PUT request. Lamport Timestamp: " + lamportTimestamp + ", Data: " + data.toString());
+        printContentAndTimestampKeys();
 
         sendResponse(s, 200, "OK");
+
+        System.out.println("Current mostRecentData: " + mostRecentData);
     }
 
-    private static synchronized void processPutQueue() {
-        PutRequest request;
-        while ((request = putQueue.poll()) != null) {
-            globalClock.receiveAction(request.getLamportTimestamp());
-
-            JSONObject data = request.getData();
-            contentData.put(String.valueOf(request.getLamportTimestamp()), data);
-            mostRecentData = data;
-            lastReceivedTimestamp.put(String.valueOf(request.getLamportTimestamp()), System.currentTimeMillis());
-        }
-    }
-
+    // The remaining code is similar to that above, ensuring data is managed,
+    // updated, and stale data is removed as needed
     private static void removeOldContentServers() {
         long currentTime = System.currentTimeMillis();
-        Set<String> staleKeys = lastReceivedTimestamp.entrySet().stream()
-                .filter(entry -> currentTime - entry.getValue() > 30 * 1000)
-                .map(Map.Entry::getKey)
+        Set<String> staleIds = lastReceivedTimestamp.entrySet().stream()
+                .filter(entry -> currentTime - entry.getValue() > 30 * 1000) // 30 seconds expiry time
+                .map(entry -> contentData.entrySet().stream()
+                        .filter(dataEntry -> dataEntry.getValue().has("LamportClock") &&
+                                dataEntry.getValue().getInt("LamportClock") == entry.getKey())
+                        .map(Map.Entry::getKey)
+                        .findFirst().orElse(null))
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        lastReceivedTimestamp.keySet().removeAll(staleKeys);
-        contentData.keySet().removeAll(staleKeys);
+        staleIds.forEach(id -> {
+            lastReceivedTimestamp.remove(id);
+            contentData.remove(id);
+        });
 
-        if (mostRecentData != null && !contentData.values().contains(mostRecentData)) {
-            mostRecentData = null;
-        }
+        printContentAndTimestampKeys();
     }
 
     private static void sendResponse(Socket s, int statusCode, String message) throws IOException {
-        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
-        dos.writeUTF("HTTP/1.1 " + statusCode + " " + message + "\r\n\r\n");
-        dos.flush();
-        dos.close();
+        OutputStream os = s.getOutputStream();
+        String httpResponse = "HTTP/1.1 " + statusCode + " " + message + "\r\n\r\n";
+        os.write(httpResponse.getBytes());
+
+        // If there is a JSON message body, add it here
+        if (statusCode == 200 && message != null && !message.equals("OK")) {
+            os.write(message.getBytes());
+        }
+
+        os.flush();
+        os.close();
         s.close();
     }
 
-    private static void writeToBackupFile() {
-        try (FileWriter file = new FileWriter(BACKUP_FILE)) {
-            if (mostRecentData != null) {
-                file.write(mostRecentData.toString());
-                System.out.println("Successfully copied JSON object to " + BACKUP_FILE);
-            } else {
-                System.out.println("Most recent data is null. Backup not created.");
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    private static void printContentAndTimestampKeys() {
+        System.out.println("contentData keys: " + contentData.keySet());
+        System.out.println("lastReceivedTimestamp keys: " + lastReceivedTimestamp.keySet());
+    }
+
+    static class LamportClock {
+        private int timestamp;
+
+        public LamportClock() {
+            this.timestamp = 0;
+        }
+
+        public synchronized int getTime() {
+            return this.timestamp;
+        }
+
+        public synchronized void sendAction() {
+            this.timestamp += 1;
+        }
+
+        public synchronized void receiveAction(int sourceTimestamp) {
+            this.timestamp = Math.max(this.timestamp, sourceTimestamp) + 1;
         }
     }
 
-    static class PutRequest {
-        private final int lamportTimestamp;
-        private final JSONObject data;
-
-        public PutRequest(int lamportTimestamp, JSONObject data) {
-            this.lamportTimestamp = lamportTimestamp;
-            this.data = data;
-        }
-
-        public int getLamportTimestamp() {
-            return lamportTimestamp;
-        }
-
-        public JSONObject getData() {
-            return data;
-        }
-    }
 }

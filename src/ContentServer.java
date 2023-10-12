@@ -2,54 +2,87 @@ import java.io.*;
 import java.net.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
 import org.json.JSONObject;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 
 public class ContentServer {
 
+    private static final int INTERVAL = 60000; // 60 seconds
+    private static LamportClock clock = new LamportClock(); // Create a persistent LamportClock instance
+
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter the file you want to access: ");
-        String filename = scanner.nextLine();
-        scanner.close();
 
+        if (args.length < 1) {
+            System.out.println("Please provide the port number for the Aggregation Server.");
+            return;
+        }
+
+        int port;
         try {
-            // 1. Initialize LamportClock and perform a send action.
-            LamportClock clock = new LamportClock();
-            clock.sendAction();
+            port = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid port number.");
+            return;
+        }
 
-            // 2. Read and parse the file into a JSON string
-            String jsonData = parseFileToJSON(filename);
+        String[] filenames = {
+                "src/weather_data.txt",
+                "src/weather_data2.txt"
+        };
 
-            // 3. Send this data to the Aggregation Server using sockets
-            Socket s = new Socket("localhost", 4567);
+        Modify modify = new Modify();
 
-            // 4. Construct the HTTP PUT request string
-            String httpPutRequest = "PUT /weather.json HTTP/1.1\r\n" +
-                    "User-Agent: ATOMClient/1/0\r\n" +
-                    "Content-Type: application/json\r\n" +
-                    "Content-Length: " + jsonData.length() + "\r\n" +
-                    "LamportClock: " + clock.getTime() + "\r\n\r\n" +
-                    jsonData;
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                modify.processFiles(filenames);
+                sendDataToServer(filenames, port);
+            }
+        }, 0, INTERVAL);
+    }
 
-            DataOutputStream dout = new DataOutputStream(s.getOutputStream());
+    private static void sendDataToServer(String[] filenames, int port) {
+        for (String filename : filenames) {
+            try {
+                // Increment the Lamport clock for the send action
+                clock.sendAction();
 
-            // 5. Send the HTTP PUT request string
-            dout.writeUTF(httpPutRequest);
+                // Read and parse the file into a JSON string
+                String jsonData = parseFileToJSON(filename);
 
-            dout.flush();
-            dout.close();
-            s.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+                // Send this data to the Aggregation Server using sockets
+                Socket s = new Socket("localhost", port);
+
+                // Construct the HTTP PUT request string
+                String httpPutRequest = "PUT /weather.json HTTP/1.1\r\n" +
+                        "User-Agent: ContentServer/1.0\r\n" +
+                        "Content-Type: application/json\r\n" +
+                        "Content-Length: " + jsonData.length() + "\r\n" +
+                        "LamportClock: " + clock.getTime() + "\r\n\r\n" +
+                        jsonData;
+
+                DataOutputStream dout = new DataOutputStream(s.getOutputStream());
+
+                // Send the HTTP PUT request string
+                dout.writeUTF(httpPutRequest);
+
+                dout.flush();
+                dout.close();
+                s.close();
+
+            } catch (FileNotFoundException e) {
+                System.out.println("File not found: " + filename);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private static String parseFileToJSON(String filename) throws IOException {
-        // Prepend the relative path
-        String filePath = "src/" + filename;
-
-        BufferedReader reader = new BufferedReader(new FileReader(filePath));
+        BufferedReader reader = new BufferedReader(new FileReader(filename));
         Map<String, Object> dataMap = new HashMap<>();
 
         String line;
@@ -72,5 +105,4 @@ public class ContentServer {
 
         return new JSONObject(dataMap).toString();
     }
-
 }
