@@ -1,0 +1,8 @@
+Response from Server: 
+HTTP/1.1 200 OK
+Date: Fri, 13 Oct 2023 08:51:18 GMT
+Content-length: 335
+
+{"IDS1877550":{"apparent_t":9.5,"wind_spd_kmh":18,"rel_hum":700,"lon":138.6,"dewpt":6,"wind_spd_kt":9,"wind_dir":"S","time_zone":"CST","LamportClock":2,"air_temp":8264.3,"cloud":"Partly cloudy","local_date_time_full":2.023071516E+13,"name":"Sydney (West Terrace /  ngayirdapira)","id":"IDS1877550","state":"SA","press":1000,"lat":-36}}
+
+IDS1877550: {"apparent_t":9.5,"wind_spd_kmh":18,"rel_hum":700,"lon":138.6,"dewpt":6,"wind_spd_kt":9,"wind_dir":"S","time_zone":"CST","LamportClock":2,"air_temp":8264.3,"cloud":"Partly cloudy","local_date_time_full":2.023071516E+13,"name":"Sydney (West Terrace /  ngayirdapira)","id":"IDS1877550","state":"SA","press":1000,"lat":-36}

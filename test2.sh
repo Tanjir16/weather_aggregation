@@ -1,3 +1,6 @@
+#!/bin/bash
+#TEST CASE 2: Multiple Content Servers Sending Data Simultaneously with Different Lamport Times & Checking the last data sent to aggregation server
+CLASSPATH=".;bin;lib/*"
 # TEST CASE 2
 echo "TEST CASE 2: Multiple Content Servers Sending Data Simultaneously with Different Lamport Times & Checking the last data sent to aggregation server"
 echo "Starting AggregationServer..."

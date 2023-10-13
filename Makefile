@@ -57,3 +57,6 @@ run-test3: compile
 run-test2: compile
 	chmod +x test2.sh
 	./test2.sh
+run-test4: compile
+	chmod +x test4.sh
+	./test4.sh	
