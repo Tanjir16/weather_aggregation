@@ -9,7 +9,7 @@ SRC_DIR = src
 BIN_DIR = bin
 
 # Classpath including the JAR files and the binaries directory
-CLASSPATH = ".;$(BIN_DIR);lib/*"
+CLASSPATH = ".:$(BIN_DIR):lib/*"
 
 # Creating a list of source files
 SRC_FILES = $(wildcard $(SRC_DIR)/*.java)
