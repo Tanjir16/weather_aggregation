@@ -9,9 +9,7 @@ SRC_DIR = src
 BIN_DIR = bin
 
 # Classpath including the JAR files and the binaries directory
-LIBS = lib/
-JARS = $(LIBS)Java-WebSocket-1.5.4.jar:$(LIBS)json-20230618.jar:$(LIBS)slf4j-api-2.0.9.jar:$(LIBS)slf4j-simple-2.0.9.jar
-CLASSPATH = ".;$(BIN);$(JARS)"
+CLASSPATH = ".:$(BIN_DIR):lib/*"
 
 # Creating a list of source files
 SRC_FILES = $(wildcard $(SRC_DIR)/*.java)
@@ -48,11 +46,10 @@ clean:
 %:
 	@:
 
-
 run-test: compile
 	chmod +x test.sh
 	./test.sh
 
 run-test3: compile
 	chmod +x test3.sh
-	./test3.sh	
+	./test3.sh

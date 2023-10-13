@@ -6,7 +6,7 @@ lat:-36
 lon:138.6
 local_date_time:15/04:1pm
 local_date_time_full:20230715160000
-air_temp:4461.3
+air_temp:5608.3
 apparent_t:9.5
 cloud:Partly cloudy
 dewpt:6
