@@ -68,7 +68,6 @@ public class Modify {
         return content;
     }
 
-    // ... (rest of the methods remain the same, no change in the below methods) ...
 
     private String incrementAirTemp(String content) {
         Pattern pattern = Pattern.compile("(air_temp:)([-]?\\d+\\.?\\d*)");

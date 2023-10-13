@@ -17,7 +17,7 @@ public class AggregationServer {
     private static Map<Integer, Long> lastReceivedTimestamp = new ConcurrentHashMap<>();
     private static ServerSocket ss = null;
     private static Map<String, JSONObject> contentData = new ConcurrentHashMap<>();
-
+// Main method to initialize and start the HTTP and Socket servers.
     public static void main(String[] args) {
         int httpPort = DEFAULT_HTTP_PORT;
         int socketPort = DEFAULT_SOCKET_PORT;
@@ -47,6 +47,8 @@ public class AggregationServer {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutdown command received. Attempting graceful shutdown...");
             try {
+                saveStateToBackupFile();  // This will be executed when CTRL+C is pressed
+        
                 if (ss != null && !ss.isClosed()) {
                     ss.close();
                 }
@@ -89,7 +91,7 @@ public class AggregationServer {
             e.printStackTrace();
         }
     }
-
+// This class handles incoming HTTP requests and sends responses.
     static class RequestHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange httpExchange) throws IOException {
@@ -99,7 +101,7 @@ public class AggregationServer {
                 id = query.split("=")[1];
             }
 
-            JSONObject aggregatedData = AggregationServer.filterDataById(id); // Corrected this line
+            JSONObject aggregatedData = AggregationServer.filterDataById(id); 
 
             String response = aggregatedData.toString();
             httpExchange.sendResponseHeaders(200, response.getBytes().length);
@@ -108,7 +110,7 @@ public class AggregationServer {
             os.close();
         }
     }
-
+// Filters the aggregated data by the specified ID or IDs.
     private static JSONObject filterDataById(String ids) {
         if (ids == null || ids.isEmpty()) {
             return new JSONObject(contentData); // Return all data if no ID is specified
@@ -128,9 +130,20 @@ public class AggregationServer {
 
         return filteredData;
     }
+    private static void saveStateToBackupFile() {
+        try (FileWriter file = new FileWriter("backup.json")) {
+            JSONObject dataToSave = new JSONObject(contentData);
+            file.write(dataToSave.toString(4));  // Writing JSON data to backup.json file with indentation of 4
+            file.flush();
+            System.out.println("Current state saved to backup.json");
+        } catch (IOException e) {
+            System.err.println("Failed to save current state to backup.json");
+            e.printStackTrace();
+        }
+    }
 
-    // Following methods handle incoming GET and PUT requests, managing data and
-    // responding to clients
+   // Handles incoming GET requests, retrieves the data based on the requested ID, 
+    // and sends it back to the client.
     private static void handleGET(String request, Socket s) throws IOException {
         System.out.println("Received a GET request.");
         String id = null;
@@ -193,8 +206,8 @@ public class AggregationServer {
         System.out.println("Current mostRecentData: " + mostRecentData);
     }
 
-    // The remaining code is similar to that above, ensuring data is managed,
-    // updated, and stale data is removed as needed
+     // Regularly checks for and removes data from content servers that haven't 
+    // sent updates within a specified time frame to keep the data fresh.
     private static void removeOldContentServers() {
         long currentTime = System.currentTimeMillis();
         Set<String> staleIds = lastReceivedTimestamp.entrySet().stream()
@@ -214,7 +227,7 @@ public class AggregationServer {
 
         printContentAndTimestampKeys();
     }
-
+// Sends a response with the given status code and message to the client over a Socket connection.
     private static void sendResponse(Socket s, int statusCode, String message) throws IOException {
         OutputStream os = s.getOutputStream();
         String httpResponse = "HTTP/1.1 " + statusCode + " " + message + "\r\n\r\n";
@@ -229,12 +242,12 @@ public class AggregationServer {
         os.close();
         s.close();
     }
-
+// Prints the keys of the contentData and lastReceivedTimestamp for debugging and monitoring purposes.
     private static void printContentAndTimestampKeys() {
         System.out.println("contentData keys: " + contentData.keySet());
         System.out.println("lastReceivedTimestamp keys: " + lastReceivedTimestamp.keySet());
     }
-
+// A class representing a Lamport Clock for managing the logical clock timestamps in a distributed system.
     static class LamportClock {
         private int timestamp;
 

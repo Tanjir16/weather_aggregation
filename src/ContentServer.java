@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.*;
-import java.util.HashMap;
-import java.util.Map;
+
 import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
